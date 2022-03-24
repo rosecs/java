@@ -1,0 +1,82 @@
+package com.generation.ecommercedb.service;
+
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import com.generation.ecommercedb.model.User;
+import com.generation.ecommercedb.utils.SHAUtil;
+
+@Service
+public class UserService {
+	
+	private final UserRepository userRepository;
+
+	@Autowired
+	public UserService(UserRepository userRepository) {
+		this.userRepository = userRepository;
+	} // constructor
+	
+	public boolean login(String userName, String password) {
+		boolean res = false;
+		Optional<User> user = 
+				userRepository.findByUserName(userName);
+		if (user.isPresent()) {
+			System.out.println("Password SHA: " + SHAUtil.createHash(password));
+			if (SHAUtil.verifyHash(password, user.get().getPassword()) ) {
+			//if (user.get().getPassword().equals(password)) {
+				res = true;
+			} // if password
+		} // else if isPresent
+		
+		return res;
+	} //login
+
+	public List<User> getUsers() {
+		return userRepository.findAll();	
+	}//getUsers
+	
+	public User getUser(Long userId) {
+		return userRepository.findById(userId).orElseThrow(
+			()-> new IllegalStateException("El usuario con el id " + userId + " no existe")
+			);
+	}// getUser
+	
+	public void deleteUser(Long userId) {
+		if(userRepository.existsById(userId)) {
+			userRepository.deleteById(userId);
+		} else {
+			throw new IllegalStateException("El usuario con el id " + userId + " no existe");
+		} //else 
+	} // deleteUser
+	
+	public void addUser(User user) {
+		Optional<User> userByName = userRepository.findByUserName(user.getUserName());
+		if (userByName.isPresent()) {
+			throw new IllegalStateException("El usuario con el nombre " + user.getUserName() 
+		+ " ya existe"); 
+		}// if
+		user.setPassword( SHAUtil.createHash(user.getPassword()) );	
+		userRepository.save(user);	
+	}// addUser
+	
+	public void updateUser(Long userId, String currentPassword, String newPassword) {
+		if (userRepository.existsById(userId)) {
+			User user = userRepository.getById(userId);
+			if ((newPassword !=null) && (currentPassword !=null)) {
+				if ( (SHAUtil.verifyHash(currentPassword, user.getPassword() ) ) && 
+					(! SHAUtil.verifyHash(newPassword, user.getPassword()) ) ) {
+					user.setPassword(SHAUtil.createHash(newPassword));	
+					userRepository.save(user);
+				} else {
+					throw new IllegalStateException("Contraseña incorrecta");	
+				}//else // if equals
+			}else {
+				throw new IllegalStateException("Contraseñas nulas");	
+			}//else  // !=null
+		}else {
+			throw new IllegalStateException("Usuario no encontrado " + userId);	
+		}//else //if existsById	
+	} // updateUser
+}// class UserService
